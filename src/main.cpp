@@ -5,6 +5,8 @@
 #include "Audio.h" // ESP32-audioI2S (schreibfaul1)
 #include <SD.h>
 #include <SPI.h>
+#include <JPEGDEC.h>
+#include <PNGdec.h>
 
 // =============================================================
 // 1. CONFIGURACIÓN DE PINES — ESP32-S3 Super Mini N4R2
@@ -59,6 +61,13 @@ Audio audio;
 SemaphoreHandle_t spiMutex     = NULL; // Mutex para el bus SPI compartido
 QueueHandle_t     metadataQueue = NULL; // Cola para pasar metadata ID3 → UI
 
+// --- Decodificadores de imagen y buffers (Carátulas) ---
+JPEGDEC jpeg;
+PNG png;
+uint16_t* albumArtBuf = NULL;
+lv_img_dsc_t albumArtDsc;
+lv_obj_t* ui_AlbumArtImg = NULL;
+
 // --- Estado compartido (escrito por audioTask, leído por uiTask) ---
 volatile uint32_t g_audioCurrent  = 0;     // Tiempo actual en segundos
 volatile uint32_t g_audioDuration = 0;     // Duración total en segundos
@@ -76,13 +85,56 @@ const unsigned long BUTTON_DEBOUNCE_MS = 250;
 
 enum MetadataType {
     META_TITLE,
-    META_ARTIST
+    META_ARTIST,
+    META_COVER_RAW
 };
 
 struct MetadataMsg {
     MetadataType type;
     char data[128]; // Búfer para el texto del tag ID3
+    uint8_t* imgData; // Puntero a carátula comprimida (PSRAM)
+    size_t imgSize;
 };
+
+// =============================================================
+// 3.5. CALLBACKS DE DIBUJO DE IMAGEN (JPEG y PNG)
+// =============================================================
+
+int JPEGDraw(JPEGDRAW *pDraw) {
+    if (!albumArtBuf) return 0;
+    int outW = albumArtDsc.header.w;
+    int outH = albumArtDsc.header.h;
+    
+    for (int y = 0; y < pDraw->iHeight; y++) {
+        int destY = pDraw->y + y;
+        if (destY >= outH) continue;
+        
+        for (int x = 0; x < pDraw->iWidth; x++) {
+            int destX = pDraw->x + x;
+            if (destX >= outW) continue;
+            // LVGL usa RGB565 Little Endian por defecto en este entorno
+            albumArtBuf[destY * outW + destX] = pDraw->pPixels[y * pDraw->iWidth + x];
+        }
+    }
+    return 1; // 1 = continue
+}
+
+int PNGDraw(PNGDRAW *pDraw) {
+    if (!albumArtBuf) return 0;
+    int outW = albumArtDsc.header.w;
+    int outH = albumArtDsc.header.h;
+    if (pDraw->y >= outH) return 0;
+    
+    // Convertir línea actual a RGB565
+    uint16_t *usPixels = (uint16_t *)pDraw->pPixels;
+    png.getLineAsRGB565(pDraw, usPixels, PNG_RGB565_LITTLE_ENDIAN, 0xffffffff);
+    
+    for (int x = 0; x < pDraw->iWidth; x++) {
+        if (x >= outW) break;
+        albumArtBuf[pDraw->y * outW + x] = usPixels[x];
+    }
+    return 1;
+}
 
 // =============================================================
 // 4. LVGL — Buffer y función de flush con protección SPI
@@ -163,6 +215,39 @@ void audio_id3data(const char *info) {
         strncpy(msg.data, value.c_str(), sizeof(msg.data) - 1);
         msg.data[sizeof(msg.data) - 1] = '\0';
         xQueueSend(metadataQueue, &msg, 0);
+    }
+}
+
+// Llamado cuando se encuentra la carátula en el MP3 (ID3 APIC frame)
+void audio_id3image(File& file, const size_t pos, const size_t size) {
+    Serial.printf("[Audio] Carátula encontrada. Tamaño: %u bytes\n", size);
+    
+    // Limitar tamaño a 250KB para evitar consumir demasiada RAM si la carátula es absurda
+    if (size > 250000) {
+        Serial.println("[Audio] Carátula demasiado grande, ignorando.");
+        return;
+    }
+
+    uint8_t* imgBuf = (uint8_t*)heap_caps_malloc(size, MALLOC_CAP_SPIRAM);
+    if (!imgBuf) {
+        Serial.println("[Audio] Error: No hay memoria PSRAM para la carátula.");
+        return;
+    }
+
+    // audio.loop() (y por tanto este callback) ya adquirió el spiMutex
+    uint32_t currentPos = file.position();
+    file.seek(pos);
+    file.read(imgBuf, size);
+    file.seek(currentPos); // Restaurar posición para que el decodificador de MP3 continúe feliz
+
+    MetadataMsg msg;
+    msg.type = META_COVER_RAW;
+    msg.imgData = imgBuf;
+    msg.imgSize = size;
+    msg.data[0] = '\0'; // Limpiar
+
+    if (xQueueSend(metadataQueue, &msg, 0) != pdTRUE) {
+        heap_caps_free(imgBuf);
     }
 }
 
@@ -257,6 +342,113 @@ void uiTask(void *pvParameters) {
                 case META_ARTIST:
                     lv_label_set_text(ui_LblArtistName, msg.data);
                     Serial.printf("[UI] Artista: %s\n", msg.data);
+                    break;
+                case META_COVER_RAW:
+                    if (msg.imgData) {
+                        bool isDecoded = false;
+                        int outW = 0, outH = 0;
+                        
+                        // El callback audio_id3image entrega el frame APIC completo,
+                        // el cual incluye un encabezado de texto (MIME type, descripción, etc.).
+                        // Buscamos la firma real del JPEG (FF D8 FF) o PNG (89 50 4E 47).
+                        int imgOffset = -1;
+                        int imgType = 0; // 1 = JPEG, 2 = PNG
+                        
+                        for (int i = 0; i < 200 && i < (int)msg.imgSize - 4; i++) {
+                            if (msg.imgData[i] == 0xFF && msg.imgData[i+1] == 0xD8 && msg.imgData[i+2] == 0xFF) {
+                                imgOffset = i;
+                                imgType = 1;
+                                break;
+                            } else if (msg.imgData[i] == 0x89 && msg.imgData[i+1] == 0x50 && msg.imgData[i+2] == 0x4E && msg.imgData[i+3] == 0x47) {
+                                imgOffset = i;
+                                imgType = 2;
+                                break;
+                            }
+                        }
+                        
+                        if (imgOffset >= 0) {
+                            uint8_t* actualImgData = msg.imgData + imgOffset;
+                            size_t actualImgSize = msg.imgSize - imgOffset;
+                            
+                            // 1. Decodificar JPEG
+                            if (imgType == 1) {
+                                if (jpeg.openRAM(actualImgData, actualImgSize, JPEGDraw)) {
+                                    int w = jpeg.getWidth();
+                                    int scale = 0; // 0=1:1, 1=1:2, 2=1:4, 3=1:8
+                                    if (w >= 1200) { scale = 3; }
+                                    else if (w >= 600) { scale = 2; }
+                                    else if (w >= 300) { scale = 1; }
+                                    
+                                    outW = jpeg.getWidth() >> scale;
+                                    outH = jpeg.getHeight() >> scale;
+                                    
+                                    if (albumArtBuf) heap_caps_free(albumArtBuf);
+                                    albumArtBuf = (uint16_t*)heap_caps_malloc(outW * outH * sizeof(uint16_t), MALLOC_CAP_SPIRAM);
+                                    
+                                    if (albumArtBuf) {
+                                        // Configurar Header LVGL
+                                        albumArtDsc.header.always_zero = 0;
+                                        albumArtDsc.header.w = outW;
+                                        albumArtDsc.header.h = outH;
+                                        albumArtDsc.data_size = outW * outH * sizeof(uint16_t);
+                                        albumArtDsc.header.cf = LV_IMG_CF_TRUE_COLOR;
+                                        albumArtDsc.data = (const uint8_t*)albumArtBuf;
+                                        
+                                        jpeg.setPixelType(RGB565_LITTLE_ENDIAN);
+                                        if (jpeg.decode(0, 0, scale)) {
+                                            isDecoded = true;
+                                        }
+                                    }
+                                    jpeg.close();
+                                }
+                            }
+                            // 2. Detectar si es PNG
+                        else if (imgType == 2) {
+                            if (png.openRAM(actualImgData, actualImgSize, PNGDraw)) {
+                                outW = png.getWidth();
+                                outH = png.getHeight();
+                                
+                                if (albumArtBuf) heap_caps_free(albumArtBuf);
+                                albumArtBuf = (uint16_t*)heap_caps_malloc(outW * outH * sizeof(uint16_t), MALLOC_CAP_SPIRAM);
+                                
+                                if (albumArtBuf) {
+                                    albumArtDsc.header.always_zero = 0;
+                                    albumArtDsc.header.w = outW;
+                                    albumArtDsc.header.h = outH;
+                                    albumArtDsc.data_size = outW * outH * sizeof(uint16_t);
+                                    albumArtDsc.header.cf = LV_IMG_CF_TRUE_COLOR;
+                                    albumArtDsc.data = (const uint8_t*)albumArtBuf;
+                                    
+                                    if (png.decode(NULL, 0)) {
+                                        isDecoded = true;
+                                    }
+                                }
+                                png.close();
+                            }
+                        }
+                        } // Fin if (imgOffset >= 0)
+                        
+                        // 3. Mostrar en UI si fue exitoso
+                        if (isDecoded && ui_AlbumArtImg) {
+                            lv_img_set_src(ui_AlbumArtImg, &albumArtDsc);
+                            
+                            // Escalar ("zoom" en LVGL, base 256 = 100%)
+                            // El panel de SquareLine es típicamente 150x150
+                            int targetSize = 150; 
+                            int zoom_w = (targetSize * 256) / outW;
+                            int zoom_h = (targetSize * 256) / outH;
+                            int zoom = min(zoom_w, zoom_h);
+                            lv_img_set_zoom(ui_AlbumArtImg, zoom);
+                            lv_obj_align(ui_AlbumArtImg, LV_ALIGN_CENTER, 0, 0);
+                            
+                            Serial.println("[UI] Carátula procesada y mostrada.");
+                        } else {
+                            Serial.println("[UI] Error al decodificar la carátula o formato no soportado.");
+                        }
+                        
+                        // Siempre liberar la memoria comprimida enviada por la tarea de audio
+                        heap_caps_free(msg.imgData);
+                    }
                     break;
             }
         }
@@ -382,6 +574,10 @@ void setup() {
     lv_label_set_text(ui_LblTimeCurrent, "0:00");
     lv_label_set_text(ui_LblTimeTotal,   "0:00");
     lv_bar_set_value(ui_BarProgress, 0, LV_ANIM_OFF);
+
+    // Crear el objeto LVGL de imagen dinámicamente dentro del panel de máscara
+    ui_AlbumArtImg = lv_img_create(ui_PnlAlbumMask);
+    lv_obj_align(ui_AlbumArtImg, LV_ALIGN_CENTER, 0, 0);
 
     Serial.println("[Setup] Interfaz cargada.");
 
