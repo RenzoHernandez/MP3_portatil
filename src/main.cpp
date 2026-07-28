@@ -67,6 +67,8 @@ PNG png;
 uint16_t* albumArtBuf = NULL;
 lv_img_dsc_t albumArtDsc;
 lv_obj_t* ui_AlbumArtImg = NULL;
+int g_imgSrcW = 150;
+int g_imgSrcH = 150;
 
 // --- Estado compartido (escrito por audioTask, leído por uiTask) ---
 volatile uint32_t g_audioCurrent  = 0;     // Tiempo actual en segundos
@@ -102,36 +104,62 @@ struct MetadataMsg {
 
 int JPEGDraw(JPEGDRAW *pDraw) {
     if (!albumArtBuf) return 0;
-    int outW = albumArtDsc.header.w;
-    int outH = albumArtDsc.header.h;
+    
+    int targetW = 150;
+    int targetH = 150;
+    
+    bool upscale = (g_imgSrcW < targetW || g_imgSrcH < targetH);
+    int offsetX = upscale ? (targetW - g_imgSrcW) / 2 : 0;
+    int offsetY = upscale ? (targetH - g_imgSrcH) / 2 : 0;
     
     for (int y = 0; y < pDraw->iHeight; y++) {
-        int destY = pDraw->y + y;
-        if (destY >= outH) continue;
+        int srcY = pDraw->y + y;
+        if (srcY >= g_imgSrcH) continue;
+        
+        int destY = upscale ? (srcY + offsetY) : ((srcY * targetH) / g_imgSrcH);
+        if (destY >= targetH || destY < 0) continue;
         
         for (int x = 0; x < pDraw->iWidth; x++) {
-            int destX = pDraw->x + x;
-            if (destX >= outW) continue;
-            // LVGL usa RGB565 Little Endian por defecto en este entorno
-            albumArtBuf[destY * outW + destX] = pDraw->pPixels[y * pDraw->iWidth + x];
+            int srcX = pDraw->x + x;
+            if (srcX >= g_imgSrcW) continue;
+            
+            int destX = upscale ? (srcX + offsetX) : ((srcX * targetW) / g_imgSrcW);
+            if (destX >= targetW || destX < 0) continue;
+            
+            albumArtBuf[destY * targetW + destX] = pDraw->pPixels[y * pDraw->iWidth + x];
         }
     }
-    return 1; // 1 = continue
+    return 1;
 }
 
 int PNGDraw(PNGDRAW *pDraw) {
     if (!albumArtBuf) return 0;
-    int outW = albumArtDsc.header.w;
-    int outH = albumArtDsc.header.h;
-    if (pDraw->y >= outH) return 0;
+    
+    int targetW = 150;
+    int targetH = 150;
+    
+    bool upscale = (g_imgSrcW < targetW || g_imgSrcH < targetH);
+    int offsetX = upscale ? (targetW - g_imgSrcW) / 2 : 0;
+    int offsetY = upscale ? (targetH - g_imgSrcH) / 2 : 0;
+    
+    int srcY = pDraw->y;
+    if (srcY >= g_imgSrcH) return 0;
+    
+    int destY = upscale ? (srcY + offsetY) : ((srcY * targetH) / g_imgSrcH);
+    if (destY >= targetH || destY < 0) return 0;
     
     // Convertir línea actual a RGB565
     uint16_t *usPixels = (uint16_t *)pDraw->pPixels;
     png.getLineAsRGB565(pDraw, usPixels, PNG_RGB565_LITTLE_ENDIAN, 0xffffffff);
     
     for (int x = 0; x < pDraw->iWidth; x++) {
-        if (x >= outW) break;
-        albumArtBuf[pDraw->y * outW + x] = usPixels[x];
+        int srcX = x;
+        if (srcX >= g_imgSrcW) break;
+        
+        int destX = upscale ? (srcX + offsetX) : ((srcX * targetW) / g_imgSrcW);
+        if (destX >= targetW || destX < 0) continue;
+        
+        albumArtBuf[destY * targetW + destX] = usPixels[x];
     }
     return 1;
 }
@@ -375,27 +403,32 @@ void uiTask(void *pvParameters) {
                                 if (jpeg.openRAM(actualImgData, actualImgSize, JPEGDraw)) {
                                     int w = jpeg.getWidth();
                                     int scale = 0; // 0=1:1, 1=1:2, 2=1:4, 3=1:8
-                                    if (w >= 1200) { scale = 3; }
-                                    else if (w >= 600) { scale = 2; }
-                                    else if (w >= 300) { scale = 1; }
+                                    int iOptions = 0;
                                     
-                                    outW = jpeg.getWidth() >> scale;
-                                    outH = jpeg.getHeight() >> scale;
+                                    if (w >= 1200) { scale = 3; iOptions = JPEG_SCALE_EIGHTH; }
+                                    else if (w >= 600) { scale = 2; iOptions = JPEG_SCALE_QUARTER; }
+                                    else if (w >= 300) { scale = 1; iOptions = JPEG_SCALE_HALF; }
                                     
-                                    if (albumArtBuf) heap_caps_free(albumArtBuf);
-                                    albumArtBuf = (uint16_t*)heap_caps_malloc(outW * outH * sizeof(uint16_t), MALLOC_CAP_SPIRAM);
+                                    g_imgSrcW = jpeg.getWidth() >> scale;
+                                    g_imgSrcH = jpeg.getHeight() >> scale;
+                                    
+                                    if (!albumArtBuf) {
+                                        albumArtBuf = (uint16_t*)heap_caps_malloc(150 * 150 * sizeof(uint16_t), MALLOC_CAP_SPIRAM);
+                                    }
                                     
                                     if (albumArtBuf) {
+                                        memset(albumArtBuf, 0, 150 * 150 * sizeof(uint16_t));
+                                        
                                         // Configurar Header LVGL
                                         albumArtDsc.header.always_zero = 0;
-                                        albumArtDsc.header.w = outW;
-                                        albumArtDsc.header.h = outH;
-                                        albumArtDsc.data_size = outW * outH * sizeof(uint16_t);
+                                        albumArtDsc.header.w = 150;
+                                        albumArtDsc.header.h = 150;
+                                        albumArtDsc.data_size = 150 * 150 * sizeof(uint16_t);
                                         albumArtDsc.header.cf = LV_IMG_CF_TRUE_COLOR;
                                         albumArtDsc.data = (const uint8_t*)albumArtBuf;
                                         
                                         jpeg.setPixelType(RGB565_LITTLE_ENDIAN);
-                                        if (jpeg.decode(0, 0, scale)) {
+                                        if (jpeg.decode(0, 0, iOptions)) {
                                             isDecoded = true;
                                         }
                                     }
@@ -403,45 +436,43 @@ void uiTask(void *pvParameters) {
                                 }
                             }
                             // 2. Detectar si es PNG
-                        else if (imgType == 2) {
-                            if (png.openRAM(actualImgData, actualImgSize, PNGDraw)) {
-                                outW = png.getWidth();
-                                outH = png.getHeight();
-                                
-                                if (albumArtBuf) heap_caps_free(albumArtBuf);
-                                albumArtBuf = (uint16_t*)heap_caps_malloc(outW * outH * sizeof(uint16_t), MALLOC_CAP_SPIRAM);
-                                
-                                if (albumArtBuf) {
-                                    albumArtDsc.header.always_zero = 0;
-                                    albumArtDsc.header.w = outW;
-                                    albumArtDsc.header.h = outH;
-                                    albumArtDsc.data_size = outW * outH * sizeof(uint16_t);
-                                    albumArtDsc.header.cf = LV_IMG_CF_TRUE_COLOR;
-                                    albumArtDsc.data = (const uint8_t*)albumArtBuf;
+                            else if (imgType == 2) {
+                                if (png.openRAM(actualImgData, actualImgSize, PNGDraw)) {
+                                    g_imgSrcW = png.getWidth();
+                                    g_imgSrcH = png.getHeight();
                                     
-                                    if (png.decode(NULL, 0)) {
-                                        isDecoded = true;
+                                    if (!albumArtBuf) {
+                                        albumArtBuf = (uint16_t*)heap_caps_malloc(150 * 150 * sizeof(uint16_t), MALLOC_CAP_SPIRAM);
                                     }
+                                    
+                                    if (albumArtBuf) {
+                                        memset(albumArtBuf, 0, 150 * 150 * sizeof(uint16_t));
+                                        
+                                        albumArtDsc.header.always_zero = 0;
+                                        albumArtDsc.header.w = 150;
+                                        albumArtDsc.header.h = 150;
+                                        albumArtDsc.data_size = 150 * 150 * sizeof(uint16_t);
+                                        albumArtDsc.header.cf = LV_IMG_CF_TRUE_COLOR;
+                                        albumArtDsc.data = (const uint8_t*)albumArtBuf;
+                                        
+                                        if (png.decode(NULL, 0)) {
+                                            isDecoded = true;
+                                        }
+                                    }
+                                    png.close();
                                 }
-                                png.close();
                             }
-                        }
                         } // Fin if (imgOffset >= 0)
                         
                         // 3. Mostrar en UI si fue exitoso
                         if (isDecoded && ui_AlbumArtImg) {
                             lv_img_set_src(ui_AlbumArtImg, &albumArtDsc);
                             
-                            // Escalar ("zoom" en LVGL, base 256 = 100%)
-                            // El panel de SquareLine es típicamente 150x150
-                            int targetSize = 150; 
-                            int zoom_w = (targetSize * 256) / outW;
-                            int zoom_h = (targetSize * 256) / outH;
-                            int zoom = min(zoom_w, zoom_h);
-                            lv_img_set_zoom(ui_AlbumArtImg, zoom);
+                            // Ya no usamos el software zoom, la imagen YA fue escalada a mano a 150x150
+                            lv_img_set_zoom(ui_AlbumArtImg, 256);
                             lv_obj_align(ui_AlbumArtImg, LV_ALIGN_CENTER, 0, 0);
                             
-                            Serial.println("[UI] Carátula procesada y mostrada.");
+                            Serial.println("[UI] Carátula escalada y mostrada.");
                         } else {
                             Serial.println("[UI] Error al decodificar la carátula o formato no soportado.");
                         }
