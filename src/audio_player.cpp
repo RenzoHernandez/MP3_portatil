@@ -1,7 +1,7 @@
 #include "audio_player.h"
 #include "config.h"
 #include "shared_state.h"
-#include "volume_control.h"
+#include "rotary_encoder.h"
 #include <SD.h>
 
 // =============================================================
@@ -195,8 +195,8 @@ void audioTask(void *pvParameters) {
             xSemaphoreGive(spiMutex);
         }
 
-        // --- Botones de volumen (GPIO, sin SPI, sin mutex) ---
-        volume_readButtons(audio);
+        // --- Leer Encoder y Botón (GPIO, sin SPI, sin mutex) ---
+        encoder_update(audio);
 
         // Ceder CPU mínimamente (1 tick ≈ 1ms)
         vTaskDelay(pdMS_TO_TICKS(1));
