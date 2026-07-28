@@ -3,9 +3,6 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
-
-# Archivos de log
 build.log
-
-# Configuraciones locales de VS Code
 .vscode
+.agents

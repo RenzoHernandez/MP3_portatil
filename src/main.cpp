@@ -81,6 +81,13 @@ const int    VOL_STEP         = 1;
 unsigned long g_lastButtonTime = 0;
 const unsigned long BUTTON_DEBOUNCE_MS = 250;
 
+// --- Toast de volumen (señalización audioTask → uiTask) ---
+volatile bool  g_volumeChanged        = false; // Flag: audioTask la pone true, uiTask la consume
+unsigned long  g_volToastShowTime     = 0;     // Timestamp del último cambio de volumen
+bool           g_volToastVisible      = false; // Estado lógico del toast en UI
+const unsigned long VOL_TOAST_DURATION_MS = 3000; // Tiempo visible antes del fade out
+const unsigned long VOL_FADE_DURATION_MS  = 300;  // Duración de la animación de fade
+
 // =============================================================
 // 3. ESTRUCTURA PARA MENSAJES DE METADATA
 // =============================================================
@@ -162,6 +169,47 @@ int PNGDraw(PNGDRAW *pDraw) {
         albumArtBuf[destY * targetW + destX] = usPixels[x];
     }
     return 1;
+}
+
+// =============================================================
+// 3.6. ANIMACIONES DEL TOAST DE VOLUMEN (Fade In / Fade Out)
+// =============================================================
+
+// Callback de animación: actualiza la opacidad del panel
+static void volToast_setOpa(void *obj, int32_t v) {
+    lv_obj_set_style_opa((lv_obj_t *)obj, (lv_opa_t)v, LV_PART_MAIN | LV_STATE_DEFAULT);
+}
+
+// Callback al finalizar el fade out: oculta el panel completamente
+static void volToast_fadeOutDone(lv_anim_t *a) {
+    lv_obj_add_flag((lv_obj_t *)a->var, LV_OBJ_FLAG_HIDDEN);
+}
+
+// Muestra el toast con animación de fade in
+static void volumeToast_fadeIn(void) {
+    lv_obj_clear_flag(ui_PnlVolumeToast, LV_OBJ_FLAG_HIDDEN);
+
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, ui_PnlVolumeToast);
+    lv_anim_set_exec_cb(&a, volToast_setOpa);
+    lv_anim_set_values(&a, 0, 255);
+    lv_anim_set_time(&a, VOL_FADE_DURATION_MS);
+    lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
+    lv_anim_start(&a);
+}
+
+// Oculta el toast con animación de fade out
+static void volumeToast_fadeOut(void) {
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, ui_PnlVolumeToast);
+    lv_anim_set_exec_cb(&a, volToast_setOpa);
+    lv_anim_set_values(&a, 255, 0);
+    lv_anim_set_time(&a, VOL_FADE_DURATION_MS);
+    lv_anim_set_path_cb(&a, lv_anim_path_ease_in);
+    lv_anim_set_ready_cb(&a, volToast_fadeOutDone);
+    lv_anim_start(&a);
 }
 
 // =============================================================
@@ -328,6 +376,7 @@ void audioTask(void *pvParameters) {
 
             if (changed) {
                 audio.setVolume(g_volume);
+                g_volumeChanged = true; // Señalar al uiTask para mostrar el toast
                 Serial.printf("[Audio] Volumen: %d/21\n", g_volume);
                 g_lastButtonTime = millis();
             }
@@ -347,16 +396,10 @@ void uiTask(void *pvParameters) {
     Serial.println("[UI] Tarea iniciada en Core 1");
 
     unsigned long lastProgressUpdate = 0;
-    unsigned long lastTick = millis();
     char timeStr[16];
 
     while (true) {
-        // --- Actualizar tiempo interno de LVGL ---
-        unsigned long currentTick = millis();
-        lv_tick_inc(currentTick - lastTick);
-        lastTick = currentTick;
-
-        // --- Procesar LVGL (el flush usa mutex internamente) ---
+        // --- Procesar LVGL (tick automático vía LV_TICK_CUSTOM, el flush usa mutex internamente) ---
         lv_timer_handler();
 
         // --- Recibir metadata del callback de audio vía Queue ---
@@ -484,6 +527,30 @@ void uiTask(void *pvParameters) {
             }
         }
 
+        // --- Toast de volumen: detectar cambio y gestionar visibilidad ---
+        if (g_volumeChanged) {
+            g_volumeChanged = false; // Consumir la flag (atómico en ESP32)
+
+            // Actualizar valor de la barra (0-21 → 0-100%)
+            int volPercent = (g_volume * 100) / 21;
+            lv_bar_set_value(ui_BarVolumeLevel, volPercent, LV_ANIM_ON);
+
+            // Mostrar toast con fade in (si no estaba visible)
+            if (!g_volToastVisible) {
+                volumeToast_fadeIn();
+                g_volToastVisible = true;
+            }
+
+            // Reiniciar timeout (cada pulsación resetea el timer)
+            g_volToastShowTime = millis();
+        }
+
+        // Ocultar toast si expiró el timeout de 3 segundos
+        if (g_volToastVisible && (millis() - g_volToastShowTime >= VOL_TOAST_DURATION_MS)) {
+            volumeToast_fadeOut();
+            g_volToastVisible = false;
+        }
+
         // --- Actualizar barra de progreso y tiempos cada 500ms ---
         if (millis() - lastProgressUpdate >= 500) {
             uint32_t current  = g_audioCurrent;
@@ -605,6 +672,10 @@ void setup() {
     lv_label_set_text(ui_LblTimeCurrent, "0:00");
     lv_label_set_text(ui_LblTimeTotal,   "0:00");
     lv_bar_set_value(ui_BarProgress, 0, LV_ANIM_OFF);
+
+    // Toast de volumen: asegurar estado inicial oculto con opacidad 0
+    lv_obj_add_flag(ui_PnlVolumeToast, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_style_opa(ui_PnlVolumeToast, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     // Crear el objeto LVGL de imagen dinámicamente dentro del panel de máscara
     ui_AlbumArtImg = lv_img_create(ui_PnlAlbumMask);
