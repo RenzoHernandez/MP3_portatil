@@ -170,6 +170,23 @@ void audioPlayer_init() {
     }
 }
 
+void audioPlayer_playIndex(int index) {
+    if (index >= 0 && index < playlist.count) {
+        playlist.currentIndex = index;
+        String mp3Path = playlist.currentTrackPath();
+        if (!mp3Path.isEmpty()) {
+            Serial.printf("[Audio] Reproduciendo seleccion: %s\n", mp3Path.c_str());
+            if (xSemaphoreTake(spiMutex, pdMS_TO_TICKS(100))) {
+                audio.connecttoFS(SD, mp3Path.c_str());
+                xSemaphoreGive(spiMutex);
+                g_audioState.playing = true;
+            } else {
+                Serial.println("[Audio] Error: No se pudo obtener el spiMutex para reproducir.");
+            }
+        }
+    }
+}
+
 // =============================================================
 // Tarea FreeRTOS de Audio — Core 0, Prioridad alta
 // Responsable de: decodificar MP3, alimentar I2S, leer botones
