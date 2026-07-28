@@ -9,13 +9,15 @@
 #include "audio_player.h"
 #include "album_art.h"
 #include "volume_control.h"
+#include "rotary_encoder.h"
 
 // =============================================================
 // Definición de variables globales compartidas (declaradas en shared_state.h)
 // =============================================================
 
 AudioState   g_audioState  = {0, 0, false};
-VolumeState  g_volumeState = {VOL_DEFAULT, false, 0};
+VolumeState  g_volumeState = {VOL_DEFAULT, false};
+EncoderState g_encoderState = {ENC_ACTION_NONE, SCREEN_PLAYER};
 SemaphoreHandle_t spiMutex     = NULL;
 QueueHandle_t     metadataQueue = NULL;
 
@@ -54,6 +56,22 @@ void uiTask(void *pvParameters) {
 
         // --- Toast de volumen ---
         volumeToast_update();
+
+        // --- Acciones del encoder ---
+        if (g_encoderState.pendingAction != ENC_ACTION_NONE) {
+            EncoderAction action = g_encoderState.pendingAction;
+            g_encoderState.pendingAction = ENC_ACTION_NONE; // Consumir flag
+            
+            if (action == ENC_ACTION_GO_FILES) {
+                // Cambiar a pantalla de archivos
+                _ui_screen_change(&ui_Archivos, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 300, 0, &ui_Archivos_screen_init);
+                g_encoderState.currentScreen = SCREEN_FILES;
+            } else if (action == ENC_ACTION_GO_PLAYER) {
+                // Cambiar a pantalla de reproductor
+                _ui_screen_change(&ui_Reproductor, LV_SCR_LOAD_ANIM_MOVE_LEFT, 300, 0, &ui_Reproductor_screen_init);
+                g_encoderState.currentScreen = SCREEN_PLAYER;
+            }
+        }
 
         // --- Actualizar barra de progreso y tiempos cada 500ms ---
         if (millis() - lastProgressUpdate >= 500) {
@@ -154,8 +172,8 @@ void setup() {
         lv_label_set_text(ui_LblSongTitle, "Sin música");
     }
 
-    // --- Paso 6: Configurar botones de volumen ---
-    volume_init();
+    // --- Paso 6: Configurar encoder rotatorio ---
+    encoder_init();
 
     // --- Paso 7: Crear tareas FreeRTOS en sus respectivos cores ---
     Serial.println("[Setup] Creando tareas FreeRTOS...");

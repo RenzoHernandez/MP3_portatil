@@ -57,33 +57,6 @@ static void volumeToast_fadeOut(void) {
 // API pública
 // =============================================================
 
-void volume_init() {
-    pinMode(PIN_VOL_DOWN, INPUT_PULLDOWN);
-    pinMode(PIN_VOL_UP, INPUT_PULLDOWN);
-}
-
-void volume_readButtons(Audio& audio) {
-    if (millis() - g_volumeState.lastButtonTime > BUTTON_DEBOUNCE_MS) {
-        bool changed = false;
-
-        if (digitalRead(PIN_VOL_DOWN) == HIGH) {
-            g_volumeState.level = max(0, g_volumeState.level - VOL_STEP);
-            changed = true;
-        }
-        else if (digitalRead(PIN_VOL_UP) == HIGH) {
-            g_volumeState.level = min(VOL_MAX, g_volumeState.level + VOL_STEP);
-            changed = true;
-        }
-
-        if (changed) {
-            audio.setVolume(g_volumeState.level);
-            g_volumeState.changed = true; // Señalar al uiTask para mostrar el toast
-            Serial.printf("[Audio] Volumen: %d/%d\n", g_volumeState.level, VOL_MAX);
-            g_volumeState.lastButtonTime = millis();
-        }
-    }
-}
-
 void volumeToast_update() {
     // Detectar cambio señalizado por audioTask
     if (g_volumeState.changed) {

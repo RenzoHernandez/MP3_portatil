@@ -26,9 +26,10 @@
 #define I2S_LRC   8
 #define I2S_DOUT  10
 
-// --- Botones de volumen ---
-#define PIN_VOL_DOWN  13
-#define PIN_VOL_UP    11
+// --- Encoder Rotatorio ---
+#define ENC_PIN_A     12
+#define ENC_PIN_B     11
+#define ENC_BTN_PIN   13
 
 // --- Dimensiones de pantalla ---
 #define SCREEN_WIDTH  240
@@ -44,7 +45,8 @@ constexpr int VOL_DEFAULT = 5;
 constexpr int VOL_STEP    = 1;
 
 // --- Timings ---
-constexpr unsigned long BUTTON_DEBOUNCE_MS    = 250;
+constexpr unsigned long ENC_LONG_PRESS_MS     = 1000;  // Umbral de pulsación larga
+constexpr unsigned long ENC_BTN_DEBOUNCE_MS   = 50;    // Debounce del botón del encoder
 constexpr unsigned long VOL_TOAST_DURATION_MS = 3000;  // Tiempo visible antes del fade out
 constexpr unsigned long VOL_FADE_DURATION_MS  = 300;   // Duración de la animación de fade
 
