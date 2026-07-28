@@ -24,6 +24,9 @@ extern lv_obj_t * ui_BarProgress;
 extern lv_obj_t * ui_LblTimeTotal;
 extern lv_obj_t * ui_ImgPauseIcon;
 extern lv_obj_t * ui_ImgPlayIcon;
+extern lv_obj_t * ui_PnlVolumeToast;
+extern lv_obj_t * ui_BarVolumeLevel;
+extern lv_obj_t * ui_ImgVolumeIcon;
 // CUSTOM VARIABLES
 
 #ifdef __cplusplus
