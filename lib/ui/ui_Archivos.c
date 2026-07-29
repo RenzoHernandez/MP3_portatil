@@ -10,6 +10,7 @@ lv_obj_t * ui_ContStatusBar2 = NULL;
 lv_obj_t * ui_LblBatteryPct2 = NULL;
 lv_obj_t * ui_ImgBatteryIcon2 = NULL;
 lv_obj_t * ui_PnlFileList = NULL;
+lv_obj_t * ui_FileItemExample = NULL;
 // event funtions
 
 // build funtions
@@ -65,6 +66,10 @@ void ui_Archivos_screen_init(void)
     lv_obj_set_style_pad_top(ui_PnlFileList, 5, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_pad_bottom(ui_PnlFileList, 5, LV_PART_MAIN | LV_STATE_DEFAULT);
 
+    ui_FileItemExample = ui_FileItem_create(ui_PnlFileList);
+    lv_obj_set_x(ui_FileItemExample, 0);
+    lv_obj_set_y(ui_FileItemExample, 0);
+
 }
 
 void ui_Archivos_screen_destroy(void)
@@ -77,5 +82,6 @@ void ui_Archivos_screen_destroy(void)
     ui_LblBatteryPct2 = NULL;
     ui_ImgBatteryIcon2 = NULL;
     ui_PnlFileList = NULL;
+    ui_FileItemExample = NULL;
 
 }

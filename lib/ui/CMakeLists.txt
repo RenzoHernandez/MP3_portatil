@@ -9,6 +9,7 @@ SET(SOURCES ui_comp_fileitem.c
     ui_img_pause_png.c
     ui_img_play_png.c
     ui_img_volume_png.c
+    ui_img_musica_png.c
     fonts/ui_font_Bold16.c
     fonts/ui_font_Regular14.c)
 

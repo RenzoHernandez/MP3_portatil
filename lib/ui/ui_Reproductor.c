@@ -22,14 +22,6 @@ lv_obj_t * ui_PnlVolumeToast = NULL;
 lv_obj_t * ui_BarVolumeLevel = NULL;
 lv_obj_t * ui_ImgVolumeIcon = NULL;
 // event funtions
-void ui_event_Reproductor(lv_event_t * e)
-{
-    lv_event_code_t event_code = lv_event_get_code(e);
-
-    if(event_code == LV_EVENT_SCREEN_LOADED) {
-        _ui_screen_change(&ui_Archivos, LV_SCR_LOAD_ANIM_OVER_LEFT, 500, 1000, &ui_Archivos_screen_init);
-    }
-}
 
 // build funtions
 
@@ -205,8 +197,6 @@ void ui_Reproductor_screen_init(void)
     lv_obj_clear_flag(ui_ImgVolumeIcon, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
     lv_obj_set_style_img_recolor(ui_ImgVolumeIcon, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_img_recolor_opa(ui_ImgVolumeIcon, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
-
-    lv_obj_add_event_cb(ui_Reproductor, ui_event_Reproductor, LV_EVENT_ALL, NULL);
 
 }
 

@@ -13,7 +13,7 @@ lv_obj_t * ui_FileItem_create(lv_obj_t * comp_parent)
     lv_obj_t * cui_FileItem;
     cui_FileItem = lv_obj_create(comp_parent);
     lv_obj_remove_style_all(cui_FileItem);
-    lv_obj_set_width(cui_FileItem, lv_pct(100));
+    lv_obj_set_width(cui_FileItem, lv_pct(95));
     lv_obj_set_height(cui_FileItem, LV_SIZE_CONTENT);    /// 50
     lv_obj_set_align(cui_FileItem, LV_ALIGN_CENTER);
     lv_obj_set_flex_flow(cui_FileItem, LV_FLEX_FLOW_ROW);
@@ -40,6 +40,7 @@ lv_obj_t * ui_FileItem_create(lv_obj_t * comp_parent)
 
     lv_obj_t * cui_ImgFileIcon;
     cui_ImgFileIcon = lv_img_create(cui_FileItem);
+    lv_img_set_src(cui_ImgFileIcon, &ui_img_musica_png);
     lv_obj_set_width(cui_ImgFileIcon, LV_SIZE_CONTENT);   /// 16
     lv_obj_set_height(cui_ImgFileIcon, LV_SIZE_CONTENT);    /// 16
     lv_obj_set_align(cui_ImgFileIcon, LV_ALIGN_CENTER);
