@@ -8,3 +8,7 @@
 void ui_comp_ContStatusBar_create_hook(lv_obj_t * comp)
 {
 }
+
+void ui_comp_FileItem_create_hook(lv_obj_t * comp)
+{
+}

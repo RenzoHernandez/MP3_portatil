@@ -1,4 +1,4 @@
-SET(SOURCES ui_comp_contstatusbar.c
+SET(SOURCES ui_comp_fileitem.c
     ui_comp.c
     ui_Reproductor.c
     ui_Archivos.c

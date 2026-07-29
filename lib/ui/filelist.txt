@@ -1,4 +1,4 @@
-ui_comp_contstatusbar.c
+ui_comp_fileitem.c
 ui_comp.c
 ui_Reproductor.c
 ui_Archivos.c

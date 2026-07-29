@@ -31,23 +31,23 @@ void populateFileList() {
     Playlist& pl = audioPlayer_getPlaylist();
     
     for (int i = 0; i < pl.count; i++) {
-        lv_obj_t* item = lv_label_create(ui_PnlFileList);
+        // Instanciar el componente de SLS
+        lv_obj_t* item = ui_FileItem_create(ui_PnlFileList);
         
         String displayName = pl.tracks[i];
         if (displayName.startsWith("/")) displayName = displayName.substring(1);
         
-        lv_label_set_text(item, displayName.c_str());
-        lv_label_set_long_mode(item, LV_LABEL_LONG_SCROLL_CIRCULAR);
-        lv_obj_set_width(item, lv_pct(100));
+        // Obtener el label hijo del componente para setear el texto
+        lv_obj_t* label = ui_comp_get_child(item, UI_COMP_FILEITEM_LBLFILENAME);
+        if (label) {
+            lv_label_set_text(label, displayName.c_str());
+        }
         
-        lv_obj_set_style_pad_all(item, 8, 0);
-        lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
-        lv_obj_set_style_text_color(item, lv_color_white(), 0);
-        
+        // Colorear el primer elemento por defecto aplicando el estado Focused
         if (i == 0) {
-            lv_obj_set_style_bg_color(item, lv_palette_main(LV_PALETTE_BLUE), 0);
+            lv_obj_add_state(item, LV_STATE_FOCUSED);
         } else {
-            lv_obj_set_style_bg_color(item, lv_color_black(), 0);
+            lv_obj_clear_state(item, LV_STATE_FOCUSED);
         }
         
         fileListItems[i] = item;
@@ -117,10 +117,10 @@ void uiTask(void *pvParameters) {
             int count = audioPlayer_getPlaylist().count;
             for (int i = 0; i < count; i++) {
                 if (i == g_encoderState.fileSelectedIndex) {
-                    lv_obj_set_style_bg_color(fileListItems[i], lv_palette_main(LV_PALETTE_BLUE), 0);
+                    lv_obj_add_state(fileListItems[i], LV_STATE_FOCUSED);
                     lv_obj_scroll_to_view(fileListItems[i], LV_ANIM_ON);
                 } else {
-                    lv_obj_set_style_bg_color(fileListItems[i], lv_color_black(), 0);
+                    lv_obj_clear_state(fileListItems[i], LV_STATE_FOCUSED);
                 }
             }
         }

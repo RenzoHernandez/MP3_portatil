@@ -6,9 +6,9 @@
 #include "ui.h"
 
 lv_obj_t * ui_Archivos = NULL;
-lv_obj_t * ui_ContStatusBar1 = NULL;
-lv_obj_t * ui_PnlCounterInfo = NULL;
-lv_obj_t * ui_LblFileCounter = NULL;
+lv_obj_t * ui_ContStatusBar2 = NULL;
+lv_obj_t * ui_LblBatteryPct2 = NULL;
+lv_obj_t * ui_ImgBatteryIcon2 = NULL;
 lv_obj_t * ui_PnlFileList = NULL;
 // event funtions
 
@@ -21,42 +21,49 @@ void ui_Archivos_screen_init(void)
     lv_obj_set_style_bg_color(ui_Archivos, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(ui_Archivos, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-    ui_ContStatusBar1 = ui_ContStatusBar_create(ui_Archivos);
-    lv_obj_set_x(ui_ContStatusBar1, 0);
-    lv_obj_set_y(ui_ContStatusBar1, 0);
+    ui_ContStatusBar2 = lv_obj_create(ui_Archivos);
+    lv_obj_remove_style_all(ui_ContStatusBar2);
+    lv_obj_set_width(ui_ContStatusBar2, 65);
+    lv_obj_set_height(ui_ContStatusBar2, LV_SIZE_CONTENT);    /// 50
+    lv_obj_set_align(ui_ContStatusBar2, LV_ALIGN_TOP_MID);
+    lv_obj_set_flex_flow(ui_ContStatusBar2, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(ui_ContStatusBar2, LV_FLEX_ALIGN_SPACE_AROUND, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START);
+    lv_obj_clear_flag(ui_ContStatusBar2, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);      /// Flags
 
-    ui_PnlCounterInfo = lv_obj_create(ui_Archivos);
-    lv_obj_set_width(ui_PnlCounterInfo, 230);
-    lv_obj_set_height(ui_PnlCounterInfo, 20);
-    lv_obj_set_x(ui_PnlCounterInfo, 0);
-    lv_obj_set_y(ui_PnlCounterInfo, 25);
-    lv_obj_set_align(ui_PnlCounterInfo, LV_ALIGN_TOP_MID);
-    lv_obj_clear_flag(ui_PnlCounterInfo, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
-    lv_obj_set_style_border_width(ui_PnlCounterInfo, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
+    ui_LblBatteryPct2 = lv_label_create(ui_ContStatusBar2);
+    lv_obj_set_width(ui_LblBatteryPct2, LV_SIZE_CONTENT);   /// 40
+    lv_obj_set_height(ui_LblBatteryPct2, LV_SIZE_CONTENT);    /// 1
+    lv_obj_set_x(ui_LblBatteryPct2, -57);
+    lv_obj_set_y(ui_LblBatteryPct2, -130);
+    lv_obj_set_align(ui_LblBatteryPct2, LV_ALIGN_CENTER);
+    lv_label_set_text(ui_LblBatteryPct2, "67%");
+    lv_obj_set_style_text_font(ui_LblBatteryPct2, &ui_font_Regular14, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-    ui_LblFileCounter = lv_label_create(ui_PnlCounterInfo);
-    lv_obj_set_width(ui_LblFileCounter, lv_pct(100));
-    lv_obj_set_height(ui_LblFileCounter, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_align(ui_LblFileCounter, LV_ALIGN_CENTER);
-    lv_label_set_long_mode(ui_LblFileCounter, LV_LABEL_LONG_DOT);
-    lv_label_set_text(ui_LblFileCounter, "Elemento 45 de 918");
-    lv_obj_set_style_text_align(ui_LblFileCounter, LV_TEXT_ALIGN_AUTO, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_text_decor(ui_LblFileCounter, LV_TEXT_DECOR_NONE, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(ui_LblFileCounter, &ui_font_Regular14, LV_PART_MAIN | LV_STATE_DEFAULT);
+    ui_ImgBatteryIcon2 = lv_img_create(ui_ContStatusBar2);
+    lv_img_set_src(ui_ImgBatteryIcon2, &ui_img_bateria_png);
+    lv_obj_set_width(ui_ImgBatteryIcon2, LV_SIZE_CONTENT);   /// 24
+    lv_obj_set_height(ui_ImgBatteryIcon2, LV_SIZE_CONTENT);    /// 24
+    lv_obj_set_align(ui_ImgBatteryIcon2, LV_ALIGN_CENTER);
+    lv_obj_add_flag(ui_ImgBatteryIcon2, LV_OBJ_FLAG_ADV_HITTEST);     /// Flags
+    lv_obj_clear_flag(ui_ImgBatteryIcon2, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
+    lv_obj_set_style_img_recolor(ui_ImgBatteryIcon2, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_img_recolor_opa(ui_ImgBatteryIcon2, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_PnlFileList = lv_obj_create(ui_Archivos);
     lv_obj_set_width(ui_PnlFileList, 230);
-    lv_obj_set_height(ui_PnlFileList, 220);
-    lv_obj_set_x(ui_PnlFileList, 0);
-    lv_obj_set_y(ui_PnlFileList, 50);
-    lv_obj_set_align(ui_PnlFileList, LV_ALIGN_TOP_MID);
+    lv_obj_set_height(ui_PnlFileList, 230);
+    lv_obj_set_align(ui_PnlFileList, LV_ALIGN_CENTER);
     lv_obj_set_flex_flow(ui_PnlFileList, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_flex_align(ui_PnlFileList, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
     lv_obj_clear_flag(ui_PnlFileList, LV_OBJ_FLAG_SCROLL_MOMENTUM | LV_OBJ_FLAG_SCROLL_CHAIN);      /// Flags
+    lv_obj_set_style_bg_color(ui_PnlFileList, lv_color_hex(0x1A1A1A), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui_PnlFileList, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_clip_corner(ui_PnlFileList, true, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_border_width(ui_PnlFileList, 1, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_pad_row(ui_PnlFileList, 10, LV_PART_MAIN | LV_STATE_DEFAULT);
-    lv_obj_set_style_pad_column(ui_PnlFileList, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_left(ui_PnlFileList, 5, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_right(ui_PnlFileList, 5, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_top(ui_PnlFileList, 5, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_bottom(ui_PnlFileList, 5, LV_PART_MAIN | LV_STATE_DEFAULT);
 
 }
 
@@ -66,9 +73,9 @@ void ui_Archivos_screen_destroy(void)
 
     // NULL screen variables
     ui_Archivos = NULL;
-    ui_ContStatusBar1 = NULL;
-    ui_PnlCounterInfo = NULL;
-    ui_LblFileCounter = NULL;
+    ui_ContStatusBar2 = NULL;
+    ui_LblBatteryPct2 = NULL;
+    ui_ImgBatteryIcon2 = NULL;
     ui_PnlFileList = NULL;
 
 }

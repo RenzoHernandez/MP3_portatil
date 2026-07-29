@@ -13,8 +13,11 @@ extern "C" {
 // SCREEN: ui_Reproductor
 extern void ui_Reproductor_screen_init(void);
 extern void ui_Reproductor_screen_destroy(void);
+extern void ui_event_Reproductor(lv_event_t * e);
 extern lv_obj_t * ui_Reproductor;
-extern lv_obj_t * ui_ContStatusBar;
+extern lv_obj_t * ui_ContStatusBar1;
+extern lv_obj_t * ui_LblBatteryPct1;
+extern lv_obj_t * ui_ImgBatteryIcon1;
 extern lv_obj_t * ui_PnlAlbumMask;
 extern lv_obj_t * ui_LblSongTitle;
 extern lv_obj_t * ui_LblArtistName;
