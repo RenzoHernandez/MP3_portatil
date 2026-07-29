@@ -14,10 +14,11 @@ extern "C" {
 extern void ui_Archivos_screen_init(void);
 extern void ui_Archivos_screen_destroy(void);
 extern lv_obj_t * ui_Archivos;
-extern lv_obj_t * ui_ContStatusBar1;
-extern lv_obj_t * ui_PnlCounterInfo;
-extern lv_obj_t * ui_LblFileCounter;
+extern lv_obj_t * ui_ContStatusBar2;
+extern lv_obj_t * ui_LblBatteryPct2;
+extern lv_obj_t * ui_ImgBatteryIcon2;
 extern lv_obj_t * ui_PnlFileList;
+extern lv_obj_t * ui_FileItemExample;
 // CUSTOM VARIABLES
 
 #ifdef __cplusplus

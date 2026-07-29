@@ -44,6 +44,7 @@ LV_IMG_DECLARE(ui_img_bateria_png);    // assets/bateria.png
 LV_IMG_DECLARE(ui_img_pause_png);    // assets/pause.png
 LV_IMG_DECLARE(ui_img_play_png);    // assets/play.png
 LV_IMG_DECLARE(ui_img_volume_png);    // assets/volume.png
+LV_IMG_DECLARE(ui_img_musica_png);    // assets/musica.png
 
 // FONTS
 LV_FONT_DECLARE(ui_font_Bold16);

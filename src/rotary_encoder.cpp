@@ -1,6 +1,7 @@
 #include "rotary_encoder.h"
 #include "config.h"
 #include "shared_state.h"
+#include "audio_player.h"
 #include <ESP32Encoder.h>
 
 static ESP32Encoder encoder;
@@ -46,11 +47,15 @@ void encoder_update(Audio& audio) {
                 break;
 
             case SCREEN_FILES:
-                // TODO: Lógica para navegar por la lista de archivos
-                if (diff > 0) {
-                    Serial.println("[Encoder] Archivos: Siguiente elemento");
-                } else if (diff < 0) {
-                    Serial.println("[Encoder] Archivos: Elemento anterior");
+                int playlistCount = audioPlayer_getPlaylist().count;
+                if (playlistCount > 0) {
+                    if (diff > 0) {
+                        g_encoderState.fileSelectedIndex = (g_encoderState.fileSelectedIndex + 1) % playlistCount;
+                    } else if (diff < 0) {
+                        g_encoderState.fileSelectedIndex = (g_encoderState.fileSelectedIndex - 1 + playlistCount) % playlistCount;
+                    }
+                    g_encoderState.selectionChanged = true;
+                    Serial.printf("[Encoder] Archivos: Indice seleccionado = %d\n", g_encoderState.fileSelectedIndex);
                 }
                 break;
         }
@@ -91,8 +96,10 @@ void encoder_update(Audio& audio) {
                         Serial.println("[Encoder] Archivos: Pulsación larga -> Reproductor");
                         g_encoderState.pendingAction = ENC_ACTION_GO_PLAYER;
                     } else {
-                        // Pulsación corta: Seleccionar archivo (TODO)
-                        Serial.println("[Encoder] Archivos: Pulsación corta -> Seleccionar");
+                        // Pulsación corta: Seleccionar archivo y reproducir
+                        Serial.println("[Encoder] Archivos: Pulsación corta -> Reproducir seleccion");
+                        audioPlayer_playIndex(g_encoderState.fileSelectedIndex);
+                        g_encoderState.pendingAction = ENC_ACTION_GO_PLAYER;
                     }
                     break;
             }

@@ -38,6 +38,9 @@ struct Playlist {
 // Inicializa el audio I2S, escanea la SD y reproduce la primera canción
 void audioPlayer_init();
 
+// Reproduce la canción en el índice especificado
+void audioPlayer_playIndex(int index);
+
 // Tarea FreeRTOS de audio (Core 0, prioridad alta)
 void audioTask(void *pvParameters);
 

@@ -28,6 +28,8 @@ enum AppScreen {
 struct EncoderState {
     volatile EncoderAction pendingAction;
     volatile AppScreen     currentScreen;
+    volatile int           fileSelectedIndex;
+    volatile bool          selectionChanged;
 };
 
 // Estado de reproducción de audio (escrito por audioTask, leído por uiTask)

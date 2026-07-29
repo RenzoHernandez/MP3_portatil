@@ -22,6 +22,39 @@ SemaphoreHandle_t spiMutex     = NULL;
 QueueHandle_t     metadataQueue = NULL;
 
 // =============================================================
+// Lista de Archivos (UI)
+// =============================================================
+lv_obj_t* fileListItems[Playlist::MAX_TRACKS];
+
+void populateFileList() {
+    lv_obj_clean(ui_PnlFileList);
+    Playlist& pl = audioPlayer_getPlaylist();
+    
+    for (int i = 0; i < pl.count; i++) {
+        // Instanciar el componente de SLS
+        lv_obj_t* item = ui_FileItem_create(ui_PnlFileList);
+        
+        String displayName = pl.tracks[i];
+        if (displayName.startsWith("/")) displayName = displayName.substring(1);
+        
+        // Obtener el label hijo del componente para setear el texto
+        lv_obj_t* label = ui_comp_get_child(item, UI_COMP_FILEITEM_LBLFILENAME);
+        if (label) {
+            lv_label_set_text(label, displayName.c_str());
+        }
+        
+        // Colorear el primer elemento por defecto aplicando el estado Focused
+        if (i == 0) {
+            lv_obj_add_state(item, LV_STATE_FOCUSED);
+        } else {
+            lv_obj_clear_state(item, LV_STATE_FOCUSED);
+        }
+        
+        fileListItems[i] = item;
+    }
+}
+
+// =============================================================
 // Tarea de UI — Core 1, Prioridad 1
 // Responsable de: LVGL, mostrar metadata, actualizar progreso
 // =============================================================
@@ -66,10 +99,29 @@ void uiTask(void *pvParameters) {
                 // Cambiar a pantalla de archivos
                 _ui_screen_change(&ui_Archivos, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 300, 0, &ui_Archivos_screen_init);
                 g_encoderState.currentScreen = SCREEN_FILES;
+                
+                // Asegurar que el elemento actual esté visible al entrar a la pantalla
+                if (audioPlayer_getPlaylist().count > 0) {
+                    lv_obj_scroll_to_view(fileListItems[g_encoderState.fileSelectedIndex], LV_ANIM_OFF);
+                }
             } else if (action == ENC_ACTION_GO_PLAYER) {
                 // Cambiar a pantalla de reproductor
                 _ui_screen_change(&ui_Reproductor, LV_SCR_LOAD_ANIM_MOVE_LEFT, 300, 0, &ui_Reproductor_screen_init);
                 g_encoderState.currentScreen = SCREEN_PLAYER;
+            }
+        }
+        
+        // --- Actualizar resaltado de la lista ---
+        if (g_encoderState.selectionChanged) {
+            g_encoderState.selectionChanged = false;
+            int count = audioPlayer_getPlaylist().count;
+            for (int i = 0; i < count; i++) {
+                if (i == g_encoderState.fileSelectedIndex) {
+                    lv_obj_add_state(fileListItems[i], LV_STATE_FOCUSED);
+                    lv_obj_scroll_to_view(fileListItems[i], LV_ANIM_ON);
+                } else {
+                    lv_obj_clear_state(fileListItems[i], LV_STATE_FOCUSED);
+                }
             }
         }
 
@@ -170,6 +222,8 @@ void setup() {
     // Mostrar "Sin música" si no se encontraron canciones
     if (audioPlayer_getPlaylist().count == 0) {
         lv_label_set_text(ui_LblSongTitle, "Sin música");
+    } else {
+        populateFileList();
     }
 
     // --- Paso 6: Configurar encoder rotatorio ---
