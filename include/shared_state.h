@@ -30,6 +30,7 @@ struct EncoderState {
     volatile AppScreen     currentScreen;
     volatile int           fileSelectedIndex;
     volatile bool          selectionChanged;
+    volatile bool          fileListChanged;
 };
 
 // Estado de reproducción de audio (escrito por audioTask, leído por uiTask)

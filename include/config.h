@@ -45,7 +45,7 @@ constexpr int VOL_DEFAULT = 5;
 constexpr int VOL_STEP    = 1;
 
 // --- Timings ---
-constexpr unsigned long ENC_LONG_PRESS_MS     = 1000;  // Umbral de pulsación larga
+constexpr unsigned long ENC_LONG_PRESS_MS     = 500;  // Umbral de pulsación larga
 constexpr unsigned long ENC_BTN_DEBOUNCE_MS   = 50;    // Debounce del botón del encoder
 constexpr unsigned long VOL_TOAST_DURATION_MS = 3000;  // Tiempo visible antes del fade out
 constexpr unsigned long VOL_FADE_DURATION_MS  = 300;   // Duración de la animación de fade

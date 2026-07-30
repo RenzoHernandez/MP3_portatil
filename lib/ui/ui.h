@@ -41,10 +41,12 @@ extern lv_obj_t * ui____initial_actions0;
 
 // IMAGES AND IMAGE SETS
 LV_IMG_DECLARE(ui_img_bateria_png);    // assets/bateria.png
+LV_IMG_DECLARE(ui_img_bateria_cargando_png);    // assets/bateria_cargando.png
 LV_IMG_DECLARE(ui_img_pause_png);    // assets/pause.png
 LV_IMG_DECLARE(ui_img_play_png);    // assets/play.png
 LV_IMG_DECLARE(ui_img_volume_png);    // assets/volume.png
 LV_IMG_DECLARE(ui_img_musica_png);    // assets/musica.png
+LV_IMG_DECLARE(ui_img_carpeta_png);    // assets/carpeta.png
 
 // FONTS
 LV_FONT_DECLARE(ui_font_Bold16);

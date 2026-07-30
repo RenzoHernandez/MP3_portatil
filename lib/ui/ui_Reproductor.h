@@ -17,6 +17,7 @@ extern lv_obj_t * ui_Reproductor;
 extern lv_obj_t * ui_ContStatusBar1;
 extern lv_obj_t * ui_LblBatteryPct1;
 extern lv_obj_t * ui_ImgBatteryIcon1;
+extern lv_obj_t * ui_ImgBatteryCharging1;
 extern lv_obj_t * ui_PnlAlbumMask;
 extern lv_obj_t * ui_LblSongTitle;
 extern lv_obj_t * ui_LblArtistName;

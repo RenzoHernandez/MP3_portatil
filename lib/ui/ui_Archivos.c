@@ -9,8 +9,12 @@ lv_obj_t * ui_Archivos = NULL;
 lv_obj_t * ui_ContStatusBar2 = NULL;
 lv_obj_t * ui_LblBatteryPct2 = NULL;
 lv_obj_t * ui_ImgBatteryIcon2 = NULL;
+lv_obj_t * ui_ImgBatteryCharging2 = NULL;
+lv_obj_t * ui_ContMainList = NULL;
+lv_obj_t * ui_LblCurrentPath = NULL;
 lv_obj_t * ui_PnlFileList = NULL;
 lv_obj_t * ui_FileItemExample = NULL;
+lv_obj_t * ui_FileItemExample1 = NULL;
 // event funtions
 
 // build funtions
@@ -24,12 +28,14 @@ void ui_Archivos_screen_init(void)
 
     ui_ContStatusBar2 = lv_obj_create(ui_Archivos);
     lv_obj_remove_style_all(ui_ContStatusBar2);
-    lv_obj_set_width(ui_ContStatusBar2, 65);
+    lv_obj_set_width(ui_ContStatusBar2, LV_SIZE_CONTENT);   /// 65
     lv_obj_set_height(ui_ContStatusBar2, LV_SIZE_CONTENT);    /// 50
     lv_obj_set_align(ui_ContStatusBar2, LV_ALIGN_TOP_MID);
     lv_obj_set_flex_flow(ui_ContStatusBar2, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(ui_ContStatusBar2, LV_FLEX_ALIGN_SPACE_AROUND, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START);
+    lv_obj_set_flex_align(ui_ContStatusBar2, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START);
     lv_obj_clear_flag(ui_ContStatusBar2, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);      /// Flags
+    lv_obj_set_style_pad_row(ui_ContStatusBar2, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_column(ui_ContStatusBar2, 5, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_LblBatteryPct2 = lv_label_create(ui_ContStatusBar2);
     lv_obj_set_width(ui_LblBatteryPct2, LV_SIZE_CONTENT);   /// 40
@@ -50,9 +56,36 @@ void ui_Archivos_screen_init(void)
     lv_obj_set_style_img_recolor(ui_ImgBatteryIcon2, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_img_recolor_opa(ui_ImgBatteryIcon2, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
 
-    ui_PnlFileList = lv_obj_create(ui_Archivos);
+    ui_ImgBatteryCharging2 = lv_img_create(ui_ContStatusBar2);
+    lv_img_set_src(ui_ImgBatteryCharging2, &ui_img_bateria_cargando_png);
+    lv_obj_set_width(ui_ImgBatteryCharging2, LV_SIZE_CONTENT);   /// 24
+    lv_obj_set_height(ui_ImgBatteryCharging2, LV_SIZE_CONTENT);    /// 24
+    lv_obj_set_align(ui_ImgBatteryCharging2, LV_ALIGN_CENTER);
+    lv_obj_add_flag(ui_ImgBatteryCharging2, LV_OBJ_FLAG_HIDDEN | LV_OBJ_FLAG_ADV_HITTEST);     /// Flags
+    lv_obj_clear_flag(ui_ImgBatteryCharging2, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
+    lv_obj_set_style_img_recolor(ui_ImgBatteryCharging2, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_img_recolor_opa(ui_ImgBatteryCharging2, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    ui_ContMainList = lv_obj_create(ui_Archivos);
+    lv_obj_remove_style_all(ui_ContMainList);
+    lv_obj_set_width(ui_ContMainList, 230);
+    lv_obj_set_height(ui_ContMainList, 230);
+    lv_obj_set_align(ui_ContMainList, LV_ALIGN_CENTER);
+    lv_obj_set_flex_flow(ui_ContMainList, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(ui_ContMainList, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+    lv_obj_clear_flag(ui_ContMainList, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);      /// Flags
+    lv_obj_set_style_pad_row(ui_ContMainList, 5, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_column(ui_ContMainList, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    ui_LblCurrentPath = lv_label_create(ui_ContMainList);
+    lv_obj_set_width(ui_LblCurrentPath, lv_pct(100));
+    lv_obj_set_height(ui_LblCurrentPath, LV_SIZE_CONTENT);    /// 1
+    lv_label_set_text(ui_LblCurrentPath, "Bring Me The Horizon - POST HUMAN: NeX GEn");
+    lv_obj_set_style_text_font(ui_LblCurrentPath, &ui_font_Regular14, LV_PART_MAIN | LV_STATE_DEFAULT);
+
+    ui_PnlFileList = lv_obj_create(ui_ContMainList);
     lv_obj_set_width(ui_PnlFileList, 230);
-    lv_obj_set_height(ui_PnlFileList, 230);
+    lv_obj_set_flex_grow(ui_PnlFileList, 1);
     lv_obj_set_align(ui_PnlFileList, LV_ALIGN_CENTER);
     lv_obj_set_flex_flow(ui_PnlFileList, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_flex_align(ui_PnlFileList, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
@@ -70,6 +103,15 @@ void ui_Archivos_screen_init(void)
     lv_obj_set_x(ui_FileItemExample, 0);
     lv_obj_set_y(ui_FileItemExample, 0);
 
+    ui_FileItemExample1 = ui_FileItem_create(ui_PnlFileList);
+    lv_obj_set_x(ui_FileItemExample1, 0);
+    lv_obj_set_y(ui_FileItemExample1, 0);
+
+    lv_img_set_src(ui_comp_get_child(ui_FileItemExample1, UI_COMP_FILEITEM_IMGFILEICON), &ui_img_carpeta_png);
+
+    lv_label_set_text(ui_comp_get_child(ui_FileItemExample1, UI_COMP_FILEITEM_LBLFILENAME),
+                      "Bring Me The Horizon - That's The Spirit");
+
 }
 
 void ui_Archivos_screen_destroy(void)
@@ -81,7 +123,11 @@ void ui_Archivos_screen_destroy(void)
     ui_ContStatusBar2 = NULL;
     ui_LblBatteryPct2 = NULL;
     ui_ImgBatteryIcon2 = NULL;
+    ui_ImgBatteryCharging2 = NULL;
+    ui_ContMainList = NULL;
+    ui_LblCurrentPath = NULL;
     ui_PnlFileList = NULL;
     ui_FileItemExample = NULL;
+    ui_FileItemExample1 = NULL;
 
 }

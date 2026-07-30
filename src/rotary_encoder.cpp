@@ -96,10 +96,16 @@ void encoder_update(Audio& audio) {
                         Serial.println("[Encoder] Archivos: Pulsación larga -> Reproductor");
                         g_encoderState.pendingAction = ENC_ACTION_GO_PLAYER;
                     } else {
-                        // Pulsación corta: Seleccionar archivo y reproducir
-                        Serial.println("[Encoder] Archivos: Pulsación corta -> Reproducir seleccion");
-                        audioPlayer_playIndex(g_encoderState.fileSelectedIndex);
-                        g_encoderState.pendingAction = ENC_ACTION_GO_PLAYER;
+                        // Pulsación corta: Seleccionar archivo o entrar a carpeta
+                        Playlist& pl = audioPlayer_getPlaylist();
+                        if (pl.entries[g_encoderState.fileSelectedIndex].isDir) {
+                            Serial.println("[Encoder] Archivos: Pulsación corta -> Entrar a carpeta");
+                            audioPlayer_enterDir(g_encoderState.fileSelectedIndex);
+                        } else {
+                            Serial.println("[Encoder] Archivos: Pulsación corta -> Reproducir seleccion");
+                            audioPlayer_playIndex(g_encoderState.fileSelectedIndex);
+                            g_encoderState.pendingAction = ENC_ACTION_GO_PLAYER;
+                        }
                     }
                     break;
             }
