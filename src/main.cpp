@@ -30,17 +30,31 @@ void populateFileList() {
     lv_obj_clean(ui_PnlFileList);
     Playlist& pl = audioPlayer_getPlaylist();
     
+    // Actualizar la ruta actual
+    if (ui_LblCurrentPath != NULL) {
+        lv_label_set_text(ui_LblCurrentPath, pl.currentPath.c_str());
+    }
+    
     for (int i = 0; i < pl.count; i++) {
         // Instanciar el componente de SLS
         lv_obj_t* item = ui_FileItem_create(ui_PnlFileList);
         
-        String displayName = pl.tracks[i];
-        if (displayName.startsWith("/")) displayName = displayName.substring(1);
+        String displayName = pl.entries[i].name;
         
         // Obtener el label hijo del componente para setear el texto
         lv_obj_t* label = ui_comp_get_child(item, UI_COMP_FILEITEM_LBLFILENAME);
         if (label) {
             lv_label_set_text(label, displayName.c_str());
+        }
+        
+        // Asignar el ícono correspondiente (carpeta o música)
+        lv_obj_t* icon = ui_comp_get_child(item, UI_COMP_FILEITEM_IMGFILEICON);
+        if (icon) {
+            if (pl.entries[i].isDir) {
+                lv_img_set_src(icon, &ui_img_carpeta_png);
+            } else {
+                lv_img_set_src(icon, &ui_img_musica_png);
+            }
         }
         
         // Colorear el primer elemento por defecto aplicando el estado Focused
@@ -100,7 +114,12 @@ void uiTask(void *pvParameters) {
                 _ui_screen_change(&ui_Archivos, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 300, 0, &ui_Archivos_screen_init);
                 g_encoderState.currentScreen = SCREEN_FILES;
                 
-                // Asegurar que el elemento actual esté visible al entrar a la pantalla
+                // Asegurar que la lista esté actualizada y el elemento actual visible
+                if (g_encoderState.fileListChanged) {
+                    g_encoderState.fileListChanged = false;
+                    populateFileList();
+                }
+                
                 if (audioPlayer_getPlaylist().count > 0) {
                     lv_obj_scroll_to_view(fileListItems[g_encoderState.fileSelectedIndex], LV_ANIM_OFF);
                 }
@@ -109,6 +128,12 @@ void uiTask(void *pvParameters) {
                 _ui_screen_change(&ui_Reproductor, LV_SCR_LOAD_ANIM_MOVE_LEFT, 300, 0, &ui_Reproductor_screen_init);
                 g_encoderState.currentScreen = SCREEN_PLAYER;
             }
+        }
+        
+        // --- Refrescar la lista de archivos dinámicamente si cambió de carpeta estando en SCREEN_FILES ---
+        if (g_encoderState.fileListChanged && g_encoderState.currentScreen == SCREEN_FILES) {
+            g_encoderState.fileListChanged = false;
+            populateFileList();
         }
         
         // --- Actualizar resaltado de la lista ---

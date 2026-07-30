@@ -22,14 +22,20 @@ struct MetadataMsg {
 };
 
 // --- Playlist ---
+struct FileEntry {
+    String name;
+    bool isDir;
+};
+
 struct Playlist {
     static const int MAX_TRACKS = 128;
-    String tracks[MAX_TRACKS];
+    FileEntry entries[MAX_TRACKS];
     int count;
     int currentIndex;
+    String currentPath;
 
     Playlist();
-    void scanSD();
+    void scanSD(String path = "/");
     String currentTrackPath() const;
     String nextTrack();
     String prevTrack();
@@ -40,6 +46,9 @@ void audioPlayer_init();
 
 // Reproduce la canción en el índice especificado
 void audioPlayer_playIndex(int index);
+
+// Entra a un directorio y recarga la lista
+void audioPlayer_enterDir(int index);
 
 // Tarea FreeRTOS de audio (Core 0, prioridad alta)
 void audioTask(void *pvParameters);

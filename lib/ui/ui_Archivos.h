@@ -17,8 +17,12 @@ extern lv_obj_t * ui_Archivos;
 extern lv_obj_t * ui_ContStatusBar2;
 extern lv_obj_t * ui_LblBatteryPct2;
 extern lv_obj_t * ui_ImgBatteryIcon2;
+extern lv_obj_t * ui_ImgBatteryCharging2;
+extern lv_obj_t * ui_ContMainList;
+extern lv_obj_t * ui_LblCurrentPath;
 extern lv_obj_t * ui_PnlFileList;
 extern lv_obj_t * ui_FileItemExample;
+extern lv_obj_t * ui_FileItemExample1;
 // CUSTOM VARIABLES
 
 #ifdef __cplusplus

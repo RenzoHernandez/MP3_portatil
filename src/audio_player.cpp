@@ -15,53 +15,83 @@ static Playlist playlist;
 // Playlist
 // =============================================================
 
-Playlist::Playlist() : count(0), currentIndex(0) {}
+Playlist::Playlist() : count(0), currentIndex(0), currentPath("/") {}
 
-void Playlist::scanSD() {
-    count = 0;
-    currentIndex = 0;
+void Playlist::scanSD(String path) {
+    if (xSemaphoreTake(spiMutex, pdMS_TO_TICKS(100))) {
+        count = 0;
+        currentIndex = 0;
+        currentPath = path;
 
-    File root = SD.open("/");
-    if (!root || !root.isDirectory()) {
-        Serial.println("[Audio] Error: No se pudo abrir la raíz de la SD.");
-        return;
-    }
-
-    File entry;
-    while ((entry = root.openNextFile()) && count < MAX_TRACKS) {
-        if (!entry.isDirectory()) {
-            String name = String(entry.name());
-            String nameLower = name;
-            nameLower.toLowerCase();
-
-            if (nameLower.endsWith(".mp3")) {
-                // Asegurar que la ruta tenga "/" al inicio
-                tracks[count] = name.startsWith("/") ? name : "/" + name;
-                count++;
-            }
+        if (currentPath != "/") {
+            entries[count].name = "..";
+            entries[count].isDir = true;
+            count++;
         }
-        entry.close();
-    }
-    root.close();
 
-    Serial.printf("[Audio] Playlist: %d cancion(es) encontrada(s)\n", count);
+        File root = SD.open(currentPath.c_str());
+        if (!root || !root.isDirectory()) {
+            Serial.println("[Audio] Error: No se pudo abrir el directorio.");
+            if (root) root.close();
+            xSemaphoreGive(spiMutex);
+            return;
+        }
+
+        File entry;
+        while ((entry = root.openNextFile()) && count < MAX_TRACKS) {
+            String name = String(entry.name());
+            
+            // Asegurarnos de obtener solo el nombre base
+            int lastSlash = name.lastIndexOf('/');
+            if (lastSlash >= 0) {
+                name = name.substring(lastSlash + 1);
+            }
+
+            if (entry.isDirectory()) {
+                entries[count].name = name;
+                entries[count].isDir = true;
+                count++;
+            } else {
+                String nameLower = name;
+                nameLower.toLowerCase();
+                if (nameLower.endsWith(".mp3")) {
+                    entries[count].name = name;
+                    entries[count].isDir = false;
+                    count++;
+                }
+            }
+            entry.close();
+        }
+        root.close();
+        xSemaphoreGive(spiMutex);
+        Serial.printf("[Audio] Playlist: %d elementos en %s\n", count, currentPath.c_str());
+    }
 }
 
 String Playlist::currentTrackPath() const {
     if (count == 0) return "";
-    return tracks[currentIndex];
+    String name = entries[currentIndex].name;
+    if (currentPath == "/") return "/" + name;
+    return currentPath + "/" + name;
 }
 
 String Playlist::nextTrack() {
     if (count == 0) return "";
     currentIndex = (currentIndex + 1) % count;
-    return tracks[currentIndex];
+    // Skip directories when auto-playing next track
+    while (entries[currentIndex].isDir) {
+        currentIndex = (currentIndex + 1) % count;
+    }
+    return currentTrackPath();
 }
 
 String Playlist::prevTrack() {
     if (count == 0) return "";
     currentIndex = (currentIndex - 1 + count) % count;
-    return tracks[currentIndex];
+    while (entries[currentIndex].isDir) {
+        currentIndex = (currentIndex - 1 + count) % count;
+    }
+    return currentTrackPath();
 }
 
 // =============================================================
@@ -171,7 +201,7 @@ void audioPlayer_init() {
 }
 
 void audioPlayer_playIndex(int index) {
-    if (index >= 0 && index < playlist.count) {
+    if (index >= 0 && index < playlist.count && !playlist.entries[index].isDir) {
         playlist.currentIndex = index;
         String mp3Path = playlist.currentTrackPath();
         if (!mp3Path.isEmpty()) {
@@ -184,6 +214,37 @@ void audioPlayer_playIndex(int index) {
                 Serial.println("[Audio] Error: No se pudo obtener el spiMutex para reproducir.");
             }
         }
+    }
+}
+
+void audioPlayer_enterDir(int index) {
+    if (index >= 0 && index < playlist.count && playlist.entries[index].isDir) {
+        String dirName = playlist.entries[index].name;
+        String newPath;
+        
+        if (dirName == "..") {
+            // Subir un nivel
+            int lastSlash = playlist.currentPath.lastIndexOf('/');
+            if (lastSlash <= 0) {
+                newPath = "/";
+            } else {
+                newPath = playlist.currentPath.substring(0, lastSlash);
+            }
+        } else {
+            // Bajar un nivel
+            if (playlist.currentPath == "/") {
+                newPath = "/" + dirName;
+            } else {
+                newPath = playlist.currentPath + "/" + dirName;
+            }
+        }
+        
+        Serial.printf("[Audio] Entrando a directorio: %s\n", newPath.c_str());
+        playlist.scanSD(newPath);
+        
+        // Notificar a la UI
+        g_encoderState.fileSelectedIndex = 0;
+        g_encoderState.fileListChanged = true;
     }
 }
 
