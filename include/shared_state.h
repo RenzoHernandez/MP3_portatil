@@ -10,6 +10,13 @@
 // Las instancias se definen en main.cpp
 // =============================================================
 
+// Comandos de playback (enviados por encoder, botones o EOF callback → procesados por audioTask)
+enum PlaybackCmd : uint8_t {
+    CMD_PLAY_NEXT = 0,
+    CMD_PLAY_PREV,
+    CMD_STOP
+};
+
 // Acciones del encoder pendientes para la UI
 enum EncoderAction {
     ENC_ACTION_NONE = 0,
@@ -52,3 +59,4 @@ extern VolumeState       g_volumeState;
 extern EncoderState      g_encoderState;
 extern SemaphoreHandle_t spiMutex;
 extern QueueHandle_t     metadataQueue;
+extern QueueHandle_t     playbackCmdQueue;

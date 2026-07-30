@@ -111,10 +111,16 @@ String Playlist::currentTrackPath() const {
 
 String Playlist::nextTrack() {
     if (count == 0) return "";
-    currentIndex = (currentIndex + 1) % count;
-    // Skip directories when auto-playing next track
-    while (entries[currentIndex].isDir) {
-        currentIndex = (currentIndex + 1) % count;
+    int startIndex = currentIndex;
+    currentIndex++;
+    // Avanzar saltando directorios, sin wrap-around
+    while (currentIndex < count && entries[currentIndex].isDir) {
+        currentIndex++;
+    }
+    if (currentIndex >= count) {
+        // No hay más canciones en este directorio
+        currentIndex = startIndex; // Mantener índice de la última canción
+        return "";
     }
     return currentTrackPath();
 }
@@ -204,11 +210,12 @@ void audio_id3image(File& file, const size_t pos, const size_t size) {
 }
 
 // Llamado cuando termina la reproducción del archivo.
+// NOTA: Este callback se ejecuta DENTRO de audio.loop(), que ya tiene spiMutex.
+// No podemos llamar connecttoFS() aquí (deadlock). Encolamos el comando.
 void audio_eof_mp3(const char *info) {
     Serial.printf("[Audio] Fin del archivo: %s\n", info);
-    // TODO: Avanzar a la siguiente canción de la playlist
-    // String next = playlist.nextTrack();
-    // if (!next.isEmpty()) audio.connecttoFS(SD, next.c_str());
+    PlaybackCmd cmd = CMD_PLAY_NEXT;
+    xQueueSend(playbackCmdQueue, &cmd, 0);
 }
 
 // =============================================================
@@ -220,18 +227,9 @@ void audioPlayer_init() {
     audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);
     audio.setVolume(g_volumeState.level);
 
-    // Escanear la SD para construir la playlist
+    // Escanear la SD para construir la playlist (sin reproducir)
     playlist.scanSD();
-
-    // Reproducir la primera canción si existe
-    String mp3Path = playlist.currentTrackPath();
-    if (!mp3Path.isEmpty()) {
-        Serial.printf("[Setup] Reproduciendo: %s\n", mp3Path.c_str());
-        audio.connecttoFS(SD, mp3Path.c_str());
-        g_audioState.playing = true;
-    } else {
-        Serial.println("[Setup] No se encontró ningún archivo .mp3 en la SD.");
-    }
+    Serial.printf("[Setup] Playlist: %d elementos encontrados.\n", playlist.count);
 }
 
 void audioPlayer_playIndex(int index) {
@@ -305,6 +303,47 @@ void audioTask(void *pvParameters) {
             }
 
             xSemaphoreGive(spiMutex);
+        }
+
+        // --- Procesar comandos de playback (encolados por EOF callback, encoder, etc.) ---
+        PlaybackCmd cmd;
+        while (xQueueReceive(playbackCmdQueue, &cmd, 0) == pdTRUE) {
+            switch (cmd) {
+                case CMD_PLAY_NEXT: {
+                    String next = playlist.nextTrack();
+                    if (!next.isEmpty()) {
+                        Serial.printf("[Audio] Siguiente pista: %s\n", next.c_str());
+                        if (xSemaphoreTake(spiMutex, pdMS_TO_TICKS(100))) {
+                            audio.connecttoFS(SD, next.c_str());
+                            xSemaphoreGive(spiMutex);
+                            g_audioState.playing = true;
+                        }
+                    } else {
+                        Serial.println("[Audio] Fin de la lista. Reproducción detenida.");
+                        g_audioState.playing = false;
+                    }
+                    break;
+                }
+                case CMD_PLAY_PREV: {
+                    String prev = playlist.prevTrack();
+                    if (!prev.isEmpty()) {
+                        Serial.printf("[Audio] Pista anterior: %s\n", prev.c_str());
+                        if (xSemaphoreTake(spiMutex, pdMS_TO_TICKS(100))) {
+                            audio.connecttoFS(SD, prev.c_str());
+                            xSemaphoreGive(spiMutex);
+                            g_audioState.playing = true;
+                        }
+                    }
+                    break;
+                }
+                case CMD_STOP:
+                    if (xSemaphoreTake(spiMutex, pdMS_TO_TICKS(100))) {
+                        audio.stopSong();
+                        xSemaphoreGive(spiMutex);
+                    }
+                    g_audioState.playing = false;
+                    break;
+            }
         }
 
         // --- Leer Encoder y Botón (GPIO, sin SPI, sin mutex) ---

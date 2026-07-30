@@ -41,7 +41,7 @@ struct Playlist {
     String prevTrack();
 };
 
-// Inicializa el audio I2S, escanea la SD y reproduce la primera canción
+// Inicializa el audio I2S y escanea la SD (no reproduce automáticamente)
 void audioPlayer_init();
 
 // Reproduce la canción en el índice especificado

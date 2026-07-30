@@ -17,9 +17,10 @@
 
 AudioState   g_audioState  = {0, 0, false};
 VolumeState  g_volumeState = {VOL_DEFAULT, false};
-EncoderState g_encoderState = {ENC_ACTION_NONE, SCREEN_PLAYER};
-SemaphoreHandle_t spiMutex     = NULL;
-QueueHandle_t     metadataQueue = NULL;
+EncoderState g_encoderState = {ENC_ACTION_NONE, SCREEN_FILES};
+SemaphoreHandle_t spiMutex        = NULL;
+QueueHandle_t     metadataQueue   = NULL;
+QueueHandle_t     playbackCmdQueue = NULL;
 
 // =============================================================
 // Lista de Archivos (UI)
@@ -204,9 +205,10 @@ void setup() {
     // --- Paso 1: Crear primitivas FreeRTOS ---
     spiMutex = xSemaphoreCreateMutex();
     metadataQueue = xQueueCreate(10, sizeof(MetadataMsg));
+    playbackCmdQueue = xQueueCreate(4, sizeof(PlaybackCmd));
 
-    if (!spiMutex || !metadataQueue) {
-        Serial.println("[Setup] Error fatal: No se pudieron crear mutex/queue!");
+    if (!spiMutex || !metadataQueue || !playbackCmdQueue) {
+        Serial.println("[Setup] Error fatal: No se pudieron crear mutex/queues!");
         while (true) { delay(100); }
     }
 
@@ -225,12 +227,9 @@ void setup() {
     // --- Paso 4: Cargar interfaz de SquareLine Studio ---
     ui_init();
 
-    // Textos iniciales mientras se busca la canción
-    lv_label_set_text(ui_LblSongTitle,   "Buscando música...");
-    lv_label_set_text(ui_LblArtistName,  "");
-    lv_label_set_text(ui_LblTimeCurrent, "0:00");
-    lv_label_set_text(ui_LblTimeTotal,   "0:00");
-    lv_bar_set_value(ui_BarProgress, 0, LV_ANIM_OFF);
+    // Iniciar directamente en la pantalla de Archivos
+    _ui_screen_change(&ui_Archivos, LV_SCR_LOAD_ANIM_NONE, 0, 0, &ui_Archivos_screen_init);
+    g_encoderState.currentScreen = SCREEN_FILES;
 
     // Toast de volumen: asegurar estado inicial oculto con opacidad 0
     lv_obj_add_flag(ui_PnlVolumeToast, LV_OBJ_FLAG_HIDDEN);
@@ -241,13 +240,11 @@ void setup() {
 
     Serial.println("[Setup] Interfaz cargada.");
 
-    // --- Paso 5: Configurar audio e iniciar reproducción ---
+    // --- Paso 5: Configurar audio y escanear SD ---
     audioPlayer_init();
 
-    // Mostrar "Sin música" si no se encontraron canciones
-    if (audioPlayer_getPlaylist().count == 0) {
-        lv_label_set_text(ui_LblSongTitle, "Sin música");
-    } else {
+    // Poblar la lista de archivos en la UI
+    if (audioPlayer_getPlaylist().count > 0) {
         populateFileList();
     }
 
@@ -279,7 +276,7 @@ void setup() {
         AUDIO_TASK_CORE
     );
 
-    Serial.println("[Setup] Sistema listo. ¡Reproduciendo!");
+    Serial.println("[Setup] Sistema listo. ¡Esperando selección!");
 }
 
 // =============================================================
