@@ -26,6 +26,10 @@
 #define I2S_LRC   8
 #define I2S_DOUT  10
 
+// --- I2C (Batería MAX17048) ---
+#define I2C_SDA   43
+#define I2C_SCL   44
+
 // --- Encoder Rotatorio ---
 #define ENC_PIN_A     12
 #define ENC_PIN_B     11
@@ -56,7 +60,10 @@ constexpr uint32_t SD_SPI_SPEED = 80000000;   // 80 MHz
 // --- FreeRTOS: Configuración de tareas ---
 constexpr uint32_t AUDIO_TASK_STACK    = 16384;  // Stack en bytes
 constexpr uint32_t UI_TASK_STACK       = 16384;
+constexpr uint32_t BATTERY_TASK_STACK  = 4096;
 constexpr int      AUDIO_TASK_PRIORITY = 2;      // Alta: audio es crítico en tiempo real
 constexpr int      UI_TASK_PRIORITY    = 1;
+constexpr int      BATTERY_TASK_PRIORITY = 1;
 constexpr int      AUDIO_TASK_CORE     = 0;
 constexpr int      UI_TASK_CORE        = 1;
+constexpr int      BATTERY_TASK_CORE   = 0;

@@ -1,7 +1,9 @@
 #include <Arduino.h>
+#include <Wire.h>
 #include <SD.h>
 #include <SPI.h>
 #include <lvgl.h>
+#include <Adafruit_MAX1704X.h>
 #include "ui.h"
 #include "config.h"
 #include "shared_state.h"
@@ -18,9 +20,12 @@
 AudioState   g_audioState  = {0, 0, false};
 VolumeState  g_volumeState = {VOL_DEFAULT, false};
 EncoderState g_encoderState = {ENC_ACTION_NONE, SCREEN_FILES};
+BatteryState g_batteryState = {0.0f, false, false};
 SemaphoreHandle_t spiMutex        = NULL;
 QueueHandle_t     metadataQueue   = NULL;
 QueueHandle_t     playbackCmdQueue = NULL;
+
+Adafruit_MAX17048 maxlipo;
 
 // =============================================================
 // Lista de Archivos (UI)
@@ -66,6 +71,39 @@ void populateFileList() {
         }
         
         fileListItems[i] = item;
+    }
+}
+
+// =============================================================
+// Tarea de Batería — Core 0, Prioridad 1
+// =============================================================
+
+void batteryTask(void *pvParameters) {
+    Serial.println("[BAT] Tarea iniciada en Core 0");
+    
+    Wire.begin(I2C_SDA, I2C_SCL);
+    if (!maxlipo.begin()) {
+        Serial.println("[BAT] Error: No se encontro el MAX17048!");
+        vTaskDelete(NULL);
+        return;
+    }
+    
+    // Delay inicial para dar tiempo al MAX17048 de hacer su primera conversión (evitar 0%)
+    vTaskDelay(pdMS_TO_TICKS(2500));
+    
+    while (true) {
+        float percent = maxlipo.cellPercent();
+        float chargeRate = maxlipo.chargeRate();
+        bool isCharging = (chargeRate > 0.1f);
+        
+        Serial.printf("[BAT] raw_pct: %.1f%%, raw_rate: %.2f%%/hr, is_charging: %d\n", percent, chargeRate, isCharging);
+
+        g_batteryState.percent = percent;
+        g_batteryState.isCharging = isCharging;
+        g_batteryState.updated = true;
+        
+        // Actualizar la lectura cada 1 minuto (60,000 ms)
+        vTaskDelay(pdMS_TO_TICKS(60000));
     }
 }
 
@@ -188,6 +226,28 @@ void uiTask(void *pvParameters) {
             lastProgressUpdate = millis();
         }
 
+        // --- Actualizar Batería ---
+        if (g_batteryState.updated) {
+            g_batteryState.updated = false;
+            char batStr[16];
+            snprintf(batStr, sizeof(batStr), "%d%%", (int)g_batteryState.percent);
+            
+            if (ui_LblBatteryPct1) lv_label_set_text(ui_LblBatteryPct1, batStr);
+            if (ui_LblBatteryPct2) lv_label_set_text(ui_LblBatteryPct2, batStr);
+            
+            if (g_batteryState.isCharging) {
+                if (ui_ImgBatteryIcon1) lv_obj_add_flag(ui_ImgBatteryIcon1, LV_OBJ_FLAG_HIDDEN);
+                if (ui_ImgBatteryCharging1) lv_obj_clear_flag(ui_ImgBatteryCharging1, LV_OBJ_FLAG_HIDDEN);
+                if (ui_ImgBatteryIcon2) lv_obj_add_flag(ui_ImgBatteryIcon2, LV_OBJ_FLAG_HIDDEN);
+                if (ui_ImgBatteryCharging2) lv_obj_clear_flag(ui_ImgBatteryCharging2, LV_OBJ_FLAG_HIDDEN);
+            } else {
+                if (ui_ImgBatteryIcon1) lv_obj_clear_flag(ui_ImgBatteryIcon1, LV_OBJ_FLAG_HIDDEN);
+                if (ui_ImgBatteryCharging1) lv_obj_add_flag(ui_ImgBatteryCharging1, LV_OBJ_FLAG_HIDDEN);
+                if (ui_ImgBatteryIcon2) lv_obj_clear_flag(ui_ImgBatteryIcon2, LV_OBJ_FLAG_HIDDEN);
+                if (ui_ImgBatteryCharging2) lv_obj_add_flag(ui_ImgBatteryCharging2, LV_OBJ_FLAG_HIDDEN);
+            }
+        }
+
         vTaskDelay(pdMS_TO_TICKS(5));
     }
 }
@@ -274,6 +334,17 @@ void setup() {
         AUDIO_TASK_PRIORITY,
         NULL,
         AUDIO_TASK_CORE
+    );
+
+    // Tarea de Batería en Core 0
+    xTaskCreatePinnedToCore(
+        batteryTask,
+        "Battery",
+        BATTERY_TASK_STACK,
+        NULL,
+        BATTERY_TASK_PRIORITY,
+        NULL,
+        BATTERY_TASK_CORE
     );
 
     Serial.println("[Setup] Sistema listo. ¡Esperando selección!");

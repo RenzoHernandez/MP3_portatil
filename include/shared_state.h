@@ -53,10 +53,18 @@ struct VolumeState {
     volatile bool changed;        // Flag: audioTask la pone true, uiTask la consume
 };
 
+// Estado de la batería (escrito por batteryTask, leído por uiTask)
+struct BatteryState {
+    volatile float percent;
+    volatile bool  isCharging;
+    volatile bool  updated;
+};
+
 // --- Instancias globales (definidas en main.cpp) ---
 extern AudioState        g_audioState;
 extern VolumeState       g_volumeState;
 extern EncoderState      g_encoderState;
+extern BatteryState      g_batteryState;
 extern SemaphoreHandle_t spiMutex;
 extern QueueHandle_t     metadataQueue;
 extern QueueHandle_t     playbackCmdQueue;
