@@ -47,6 +47,12 @@ void Playlist::scanSD(String path) {
                 name = name.substring(lastSlash + 1);
             }
 
+            // Ignorar archivos ocultos o de sistema
+            if (name.startsWith(".") || name.equalsIgnoreCase("System Volume Information")) {
+                entry.close();
+                continue;
+            }
+
             if (entry.isDirectory()) {
                 entries[count].name = name;
                 entries[count].isDir = true;
@@ -63,6 +69,34 @@ void Playlist::scanSD(String path) {
             entry.close();
         }
         root.close();
+
+        // Ordenamiento alfabético: carpetas primero, luego archivos
+        int startIndex = (currentPath != "/") ? 1 : 0;
+        for (int i = startIndex + 1; i < count; i++) {
+            FileEntry key = entries[i];
+            int j = i - 1;
+            
+            while (j >= startIndex) {
+                bool swapNeeded = false;
+                if (entries[j].isDir == key.isDir) {
+                    // Ambos son del mismo tipo, comparar alfabéticamente
+                    if (strcasecmp(entries[j].name.c_str(), key.name.c_str()) > 0) {
+                        swapNeeded = true;
+                    }
+                } else if (!entries[j].isDir && key.isDir) {
+                    // key es directorio, j es archivo -> key debe ir antes
+                    swapNeeded = true;
+                }
+                
+                if (swapNeeded) {
+                    entries[j + 1] = entries[j];
+                    j--;
+                } else {
+                    break;
+                }
+            }
+            entries[j + 1] = key;
+        }
         xSemaphoreGive(spiMutex);
         Serial.printf("[Audio] Playlist: %d elementos en %s\n", count, currentPath.c_str());
     }
