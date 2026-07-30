@@ -50,7 +50,7 @@ void ui_Reproductor_screen_init(void)
     lv_obj_set_x(ui_LblBatteryPct1, -57);
     lv_obj_set_y(ui_LblBatteryPct1, -130);
     lv_obj_set_align(ui_LblBatteryPct1, LV_ALIGN_CENTER);
-    lv_label_set_text(ui_LblBatteryPct1, "67%");
+    lv_label_set_text(ui_LblBatteryPct1, "-- %");
     lv_obj_set_style_text_font(ui_LblBatteryPct1, &ui_font_Regular14, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_ImgBatteryIcon1 = lv_img_create(ui_ContStatusBar1);
