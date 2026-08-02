@@ -23,8 +23,8 @@
 
 // --- I2S Audio (MAX98357A) ---
 #define I2S_BCLK  9
-#define I2S_LRC   8
-#define I2S_DOUT  10
+#define I2S_LRC   10
+#define I2S_DOUT  8
 
 // --- I2C (Batería MAX17048) ---
 #define I2C_SDA   43
@@ -32,8 +32,8 @@
 
 // --- Encoder Rotatorio ---
 #define ENC_PIN_A     12
-#define ENC_PIN_B     11
-#define ENC_BTN_PIN   13
+#define ENC_PIN_B     13
+#define ENC_BTN_PIN   11
 
 // --- Dimensiones de pantalla ---
 #define SCREEN_WIDTH  240
